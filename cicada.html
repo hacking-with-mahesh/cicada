@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cicada - Secure Data Obfuscation</title>
+    <style>
+        :root {
+            --hacker-green: #00ff00;
+            --dark-bg: #0a0a0a;
+            --terminal-border: 2px solid #1a1a1a;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: var(--dark-bg);
+            color: var(--hacker-green);
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .container {
+            border: var(--terminal-border);
+            padding: 2rem;
+            border-radius: 5px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+        }
+
+        textarea, input, select {
+            background: #000;
+            color: var(--hacker-green);
+            border: var(--terminal-border);
+            padding: 0.5rem;
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        button {
+            background: #000;
+            color: var(--hacker-green);
+            border: var(--terminal-border);
+            padding: 1rem 2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: var(--hacker-green);
+            color: #000;
+        }
+
+        .history-log {
+            margin-top: 2rem;
+            border-top: var(--terminal-border);
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔒 Cicada v1.0</h2>
+        
+        <select id="algorithm">
+            <option value="aes-256-cbc">AES-256-CBC</option>
+            <option value="xor">XOR Obfuscation</option>
+            <option value="base64">Base64 (Basic)</option>
+        </select>
+
+        <textarea id="input" placeholder="Enter plaintext/ciphertext..." rows="6"></textarea>
+        
+        <input type="password" id="key" placeholder="Encryption Key">
+        <input type="file" id="fileInput" style="display: none;">
+        
+        <div>
+            <button onclick="encrypt()">Encrypt</button>
+            <button onclick="decrypt()">Decrypt</button>
+            <button onclick="document.getElementById('fileInput').click()">Upload File</button>
+        </div>
+
+        <textarea id="output" readonly rows="6"></textarea>
+
+        <div class="history-log">
+            <h3>🔑 Operation History</h3>
+            <div id="history"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        // AES-256 Encryption Core
+        function aesEncrypt(text, key) {
+            const salt = CryptoJS.lib.WordArray.random(128/8);
+            const key256 = CryptoJS.PBKDF2(key, salt, { keySize: 256/32 });
+            const iv = CryptoJS.lib.WordArray.random(128/8);
+            
+            const encrypted = CryptoJS.AES.encrypt(text, key256, { iv: iv });
+            return salt.toString() + iv.toString() + encrypted.toString();
+        }
+
+        // AES-256 Decryption Core
+        function aesDecrypt(ciphertext, key) {
+            const salt = CryptoJS.enc.Hex.parse(ciphertext.substr(0, 32));
+            const iv = CryptoJS.enc.Hex.parse(ciphertext.substr(32, 32));
+            const encrypted = ciphertext.substring(64);
+            
+            const key256 = CryptoJS.PBKDF2(key, salt, { keySize: 256/32 });
+            return CryptoJS.AES.decrypt(encrypted, key256, { iv: iv }).toString(CryptoJS.enc.Utf8);
+        }
+
+        // XOR Obfuscation
+        function xorCrypt(text, key) {
+            return text.split('').map((char, index) => 
+                String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(index % key.length))
+            ).join('');
+        }
+
+        function encrypt() {
+            const algorithm = document.getElementById('algorithm').value;
+            const text = document.getElementById('input').value;
+            const key = document.getElementById('key').value;
+            
+            let result;
+            switch(algorithm) {
+                case 'aes-256-cbc':
+                    result = aesEncrypt(text, key);
+                    break;
+                case 'xor':
+                    result = btoa(xorCrypt(text, key));
+                    break;
+                case 'base64':
+                    result = btoa(text);
+                    break;
+            }
+            
+            document.getElementById('output').value = result;
+            logOperation('Encryption', algorithm);
+        }
+
+        function decrypt() {
+            const algorithm = document.getElementById('algorithm').value;
+            const text = document.getElementById('input').value;
+            const key = document.getElementById('key').value;
+            
+            let result;
+            try {
+                switch(algorithm) {
+                    case 'aes-256-cbc':
+                        result = aesDecrypt(text, key);
+                        break;
+                    case 'xor':
+                        result = xorCrypt(atob(text), key);
+                        break;
+                    case 'base64':
+                        result = atob(text);
+                        break;
+                }
+                document.getElementById('output').value = result;
+                logOperation('Decryption', algorithm);
+            } catch (e) {
+                alert('Decryption failed - check key/ciphertext');
+            }
+        }
+
+        function logOperation(action, algorithm) {
+            const history = document.getElementById('history');
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${action} via ${algorithm}`;
+            history.prepend(entry);
+        }
+
+        // File Handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                document.getElementById('input').value = e.target.result;
+            };
+            
+            reader.readAsText(file);
+        });
+    </script>
+</body>
+</html>
